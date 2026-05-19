@@ -128,14 +128,6 @@
                     <el-button size="small" @click="handleEditItem(row)">
                       {{ t('common.edit') }}
                     </el-button>
-                    <el-button
-                      size="small"
-                      type="success"
-                      plain
-                      @click="handleOpenAiRefineDialog(row)"
-                    >
-                      {{ t('settingManager.aiRefine') }}
-                    </el-button>
                     <el-button size="small" type="danger" @click="handleDeleteItem(row)">
                       {{ t('common.delete') }}
                     </el-button>
@@ -223,62 +215,6 @@
     </template>
   </el-dialog>
 
-  <el-dialog
-    v-model="aiRequirementDialogVisible"
-    :title="t('settingManager.aiRefineDialogTitle')"
-    width="620px"
-    :close-on-click-modal="!aiRefining"
-    :close-on-press-escape="!aiRefining"
-    :show-close="!aiRefining"
-  >
-    <el-form label-position="top" @submit.prevent="handleRunAiRefine">
-      <el-form-item :label="t('settingManager.aiRefineRequirement')">
-        <el-input
-          v-model="aiRefineRequirement"
-          type="textarea"
-          :rows="6"
-          :disabled="aiRefining"
-          :placeholder="t('settingManager.aiRefineRequirementPlaceholder')"
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button :disabled="aiRefining" @click="aiRequirementDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button type="primary" :loading="aiRefining" @click="handleRunAiRefine">
-        {{ t('common.confirm') }}
-      </el-button>
-    </template>
-  </el-dialog>
-
-  <el-dialog
-    v-model="aiResultDialogVisible"
-    :title="t('settingManager.aiRefineResultTitle')"
-    width="760px"
-    :close-on-click-modal="!aiApplying"
-    :close-on-press-escape="!aiApplying"
-    :show-close="!aiApplying"
-  >
-    <el-input
-      v-model="aiRefineResult"
-      type="textarea"
-      :rows="16"
-      readonly
-      :placeholder="t('settingManager.aiRefineResultPlaceholder')"
-    />
-    <template #footer>
-      <el-button :disabled="aiApplying" @click="copyAiRefineResult">
-        {{ t('common.copy') }}
-      </el-button>
-      <el-button :disabled="aiApplying" @click="aiResultDialogVisible = false">
-        {{ t('common.cancel') }}
-      </el-button>
-      <el-button type="primary" :loading="aiApplying" @click="confirmApplyAiRefineResult">
-        {{ t('common.confirm') }}
-      </el-button>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup>
@@ -311,13 +247,6 @@ const categoryFormRef = ref(null)
 const settingFormRef = ref(null)
 const tableRef = ref(null)
 const itemSortable = ref(null)
-const aiRequirementDialogVisible = ref(false)
-const aiResultDialogVisible = ref(false)
-const aiRefining = ref(false)
-const aiApplying = ref(false)
-const aiRefineRequirement = ref('')
-const aiRefineResult = ref('')
-const aiTargetItemId = ref('')
 
 const categoryForm = reactive({
   id: '',
@@ -484,24 +413,6 @@ function findParentAndIndexById(nodes, id, parent = null) {
 
     const childResult = findParentAndIndexById(node.children || [], id, node)
     if (childResult) return childResult
-  }
-
-  return null
-}
-
-function findItemById(nodes, targetId) {
-  for (const category of nodes) {
-    const items = Array.isArray(category.items) ? category.items : []
-    const item = items.find((entry) => entry.id === targetId)
-    if (item) {
-      return {
-        category,
-        item
-      }
-    }
-
-    const found = findItemById(category.children || [], targetId)
-    if (found) return found
   }
 
   return null
@@ -793,98 +704,6 @@ async function handleDeleteItem(item) {
   }
 }
 
-function resetAiRefineDraft() {
-  aiRefineRequirement.value = ''
-  aiRefineResult.value = ''
-  aiTargetItemId.value = ''
-  aiRefining.value = false
-  aiApplying.value = false
-}
-
-function handleOpenAiRefineDialog(item) {
-  resetAiRefineDraft()
-  aiTargetItemId.value = item.id
-  aiRequirementDialogVisible.value = true
-}
-
-async function handleRunAiRefine() {
-  const target = findItemById(categories.value, aiTargetItemId.value)
-  if (!target?.item) {
-    ElMessage.warning(t('settingManager.aiTargetNotFound'))
-    aiRequirementDialogVisible.value = false
-    return
-  }
-
-  if (!window.electron?.refineSettingWithAI) {
-    ElMessage.error(t('settingManager.aiUnsupported'))
-    return
-  }
-
-  aiRefining.value = true
-  try {
-    const result = await window.electron.refineSettingWithAI({
-      settingName: String(target.item.name || '').trim(),
-      sourceContent: String(target.item.introduction || '').trim(),
-      userInstruction: String(aiRefineRequirement.value || '').trim()
-    })
-
-    if (!result?.success) {
-      throw new Error(result?.message || t('settingManager.aiRefineFailed'))
-    }
-
-    const content = String(result.content || '').trim()
-    if (!content) {
-      throw new Error(t('settingManager.aiRefineEmpty'))
-    }
-
-    aiRefineResult.value = content
-    aiResultDialogVisible.value = true
-  } catch (error) {
-    ElMessage.error(error?.message || t('settingManager.aiRefineFailed'))
-  } finally {
-    aiRefining.value = false
-  }
-}
-
-async function copyAiRefineResult() {
-  const content = String(aiRefineResult.value || '').trim()
-  if (!content) return
-  try {
-    await navigator.clipboard.writeText(content)
-    ElMessage.success(t('settingManager.aiCopySuccess'))
-  } catch {
-    ElMessage.error(t('settingManager.aiCopyFailed'))
-  }
-}
-
-async function confirmApplyAiRefineResult() {
-  const content = String(aiRefineResult.value || '').trim()
-  if (!content) {
-    ElMessage.warning(t('settingManager.aiRefineEmpty'))
-    return
-  }
-
-  const target = findItemById(categories.value, aiTargetItemId.value)
-  if (!target?.item) {
-    ElMessage.warning(t('settingManager.aiTargetNotFound'))
-    aiResultDialogVisible.value = false
-    return
-  }
-
-  aiApplying.value = true
-  try {
-    target.item.introduction = content
-    await saveSettings()
-    aiResultDialogVisible.value = false
-    aiRequirementDialogVisible.value = false
-    resetAiRefineDraft()
-    ElMessage.success(t('settingManager.aiApplySuccess'))
-  } catch {
-    // 错误提示由 saveSettings 处理
-  } finally {
-    aiApplying.value = false
-  }
-}
 
 function destroyItemSortable() {
   if (itemSortable.value && typeof itemSortable.value.destroy === 'function') {
@@ -915,7 +734,7 @@ function initItemSortable() {
       try {
         await saveSettings()
       } catch {
-        // 保存失败提示在 saveSettings 内处理
+        // 保存失败提示�?saveSettings 内处�?
       }
     }
   })

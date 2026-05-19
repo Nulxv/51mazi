@@ -104,15 +104,6 @@
               <el-button type="primary" :icon="Plus" @click="$emit('select-cover')">
                 {{ t('bookForm.selectCoverImage') }}
               </el-button>
-              <el-button
-                type="success"
-                :icon="MagicStick"
-                :disabled="!localForm.name || !localForm.type"
-                :title="!localForm.name || !localForm.type ? t('bookForm.fillNameAndTypeFirst') : ''"
-                @click="$emit('open-ai-cover')"
-              >
-                {{ t('bookForm.aiGenerateCover') }}
-              </el-button>
             </div>
             <div v-if="localForm.coverImagePath" class="cover-path">
               {{ localForm.coverImagePath }}
@@ -132,7 +123,7 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
-import { Plus, Delete, MagicStick } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -148,8 +139,7 @@ const emit = defineEmits([
   'update:form',
   'confirm',
   'select-cover',
-  'remove-cover',
-  'open-ai-cover'
+  'remove-cover'
 ])
 const { t } = useI18n()
 

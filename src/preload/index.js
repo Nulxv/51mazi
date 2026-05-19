@@ -31,6 +31,14 @@ const customElectronAPI = {
   setBookshelfAuthenticated: () => ipcRenderer.invoke('auth:set-bookshelf-authenticated'),
   // 书架密码认证：查询主进程当前会话是否已认证（跨窗口共享状态）
   getBookshelfAuthenticated: () => ipcRenderer.invoke('auth:get-bookshelf-authenticated'),
+  // 书架密码：是否已配置
+  hasBookshelfPassword: () => ipcRenderer.invoke('auth:has-bookshelf-password'),
+  // 书架密码：校验输入密码
+  verifyBookshelfPassword: (password) => ipcRenderer.invoke('auth:verify-bookshelf-password', password),
+  // 书架密码：设置新密码
+  setBookshelfPassword: (password) => ipcRenderer.invoke('auth:set-bookshelf-password', password),
+  // 书架密码：更新或删除密码
+  updateBookshelfPassword: (payload) => ipcRenderer.invoke('auth:update-bookshelf-password', payload),
   // 创建卷
   createVolume: (bookName) => ipcRenderer.invoke('create-volume', bookName),
   // 创建章节
@@ -44,12 +52,6 @@ const customElectronAPI = {
   // 拖拽调整某卷内章节顺序并按章节设置重新编号
   reorderChaptersInVolume: (bookName, volumeName, orderedChapterNames) =>
     ipcRenderer.invoke('reorder-chapters-in-volume', { bookName, volumeName, orderedChapterNames }),
-
-  // --------- 小说下载相关 ---------
-  novelGetSources: () => ipcRenderer.invoke('novel:get-sources'),
-  novelSearch: (payload) => ipcRenderer.invoke('novel:search', payload),
-  novelGetChapterList: (payload) => ipcRenderer.invoke('novel:get-chapter-list', payload),
-  novelDownloadChapters: (payload) => ipcRenderer.invoke('novel:download-chapters', payload),
 
   // --------- 节点相关 ---------
   // 编辑节点
@@ -140,10 +142,7 @@ const customElectronAPI = {
   // 保存大纲数据
   writeOutlines: (bookName, data) => ipcRenderer.invoke('write-outlines', { bookName, data }),
   // 读取 AI 大纲会话数据
-  readOutlineAiSessions: (bookName) => ipcRenderer.invoke('read-outline-ai-sessions', { bookName }),
   // 保存 AI 大纲会话数据
-  writeOutlineAiSessions: (bookName, data) =>
-    ipcRenderer.invoke('write-outline-ai-sessions', { bookName, data }),
 
   // --------- 地图相关 ---------
   // 读取地图列表
@@ -247,72 +246,7 @@ const customElectronAPI = {
   // 添加禁词
   addBannedWord: (bookName, word) => ipcRenderer.invoke('add-banned-word', bookName, word),
   // 删除禁词
-  removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word),
-
-  // --------- 自动更新相关 ---------
-  // 手动检查更新
-  checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
-  // 下载更新
-  downloadUpdate: () => ipcRenderer.invoke('download-update'),
-  // 安装更新并重启
-  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
-  // 获取当前版本
-  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  // 设置更新方式：'auto' 自动更新 | 'manual' 手动更新
-  setUpdateMode: (mode) => ipcRenderer.invoke('set-update-mode', mode),
-
-  // --------- DeepSeek AI 相关 ---------
-  // 设置 API Key
-  setDeepSeekApiKey: (apiKey) => ipcRenderer.invoke('deepseek:set-api-key', apiKey),
-  // 获取 API Key
-  getDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:get-api-key'),
-  // AI 随机起名
-  generateNamesWithAI: (options) => ipcRenderer.invoke('deepseek:generate-names', options),
-  // 验证 API Key
-  validateDeepSeekApiKey: () => ipcRenderer.invoke('deepseek:validate-api-key'),
-  // AI 润色段落（编辑器内使用）
-  polishTextWithAI: (text) => ipcRenderer.invoke('deepseek:polish-text', { text }),
-  // AI 完善设定（设定管理）
-  refineSettingWithAI: (payload) => ipcRenderer.invoke('deepseek:refine-setting', payload),
-  // AI 大纲工作台：完善/拆分/继续调整
-  runOutlineAiTask: (payload) => ipcRenderer.invoke('deepseek:outline-task', payload),
-  // AI 章纲 -> 章节正文
-  generateChapterFromOutline: (payload) =>
-    ipcRenderer.invoke('deepseek:generate-chapter-from-outline', payload),
-  // AI 续写（编辑器内使用）
-  continueWriteWithAI: (options) => ipcRenderer.invoke('deepseek:continue-write', options),
-  // AI 场景图：节选 → 画面描述（DeepSeek）
-  refineSceneVisualPromptWithAI: (text) =>
-    ipcRenderer.invoke('deepseek:scene-visual-prompt', { text }),
-
-  // --------- 通义万相 AI 封面 ---------
-  setTongyiwanxiangApiKey: (apiKey) => ipcRenderer.invoke('tongyiwanxiang:set-api-key', apiKey),
-  getTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:get-api-key'),
-  validateTongyiwanxiangApiKey: () => ipcRenderer.invoke('tongyiwanxiang:validate-api-key'),
-  generateAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:generate-cover', options),
-  confirmAICover: (options) => ipcRenderer.invoke('tongyiwanxiang:confirm-cover', options),
-  discardAICovers: (options) => ipcRenderer.invoke('tongyiwanxiang:discard-ai-covers', options),
-  // 通义万相 AI 人物图
-  generateAICharacterImage: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:generate-character-image', options),
-  confirmAICharacterImage: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:confirm-character-image', options),
-  discardAICharacterImages: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:discard-ai-character-images', options),
-  // 通义万相 AI 场景图（选中文本）
-  generateAISceneImage: (options) =>
-    ipcRenderer.invoke('tongyiwanxiang:generate-scene-image', options),
-
-  // --------- 图像 AI 多服务商（配置与上次选用）---------
-  listConfiguredImageProviders: () => ipcRenderer.invoke('imageAi:list-configured-providers'),
-  getImageAiLastProvider: () => ipcRenderer.invoke('imageAi:get-last-provider'),
-  setImageAiLastProvider: (provider) => ipcRenderer.invoke('imageAi:set-last-provider', provider),
-  setGeminiApiKey: (apiKey) => ipcRenderer.invoke('imageAi:set-gemini-api-key', apiKey),
-  getGeminiApiKey: () => ipcRenderer.invoke('imageAi:get-gemini-api-key'),
-  validateGeminiApiKey: () => ipcRenderer.invoke('imageAi:validate-gemini-api-key'),
-  setDoubaoConfig: (payload) => ipcRenderer.invoke('imageAi:set-doubao-config', payload),
-  getDoubaoConfig: () => ipcRenderer.invoke('imageAi:get-doubao-config'),
-  validateDoubaoConfig: () => ipcRenderer.invoke('imageAi:validate-doubao-config')
+  removeBannedWord: (bookName, word) => ipcRenderer.invoke('remove-banned-word', bookName, word)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -321,36 +255,6 @@ const customElectronAPI = {
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', { ...electronAPI, ...customElectronAPI })
-
-    // 监听更新事件
-    ipcRenderer.on('update-checking', () => {
-      window.dispatchEvent(new CustomEvent('update-checking'))
-    })
-
-    ipcRenderer.on('update-available', (_, info) => {
-      window.dispatchEvent(new CustomEvent('update-available', { detail: info }))
-    })
-
-    ipcRenderer.on('update-not-available', () => {
-      window.dispatchEvent(new CustomEvent('update-not-available'))
-    })
-
-    ipcRenderer.on('update-error', (_, error) => {
-      window.dispatchEvent(new CustomEvent('update-error', { detail: error }))
-    })
-
-    ipcRenderer.on('update-download-progress', (_, progress) => {
-      window.dispatchEvent(new CustomEvent('update-download-progress', { detail: progress }))
-    })
-
-    ipcRenderer.on('update-downloaded', (_, info) => {
-      window.dispatchEvent(new CustomEvent('update-downloaded', { detail: info }))
-    })
-
-    // 小说下载进度（主进程 novel:download-chapters 时发送）
-    ipcRenderer.on('novel-download-progress', (_, progress) => {
-      window.dispatchEvent(new CustomEvent('novel-download-progress', { detail: progress }))
-    })
 
     contextBridge.exposeInMainWorld('api', api)
     // 存储

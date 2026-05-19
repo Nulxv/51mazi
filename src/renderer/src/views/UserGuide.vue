@@ -187,29 +187,6 @@ const guideData = {
         entry: '首页左侧菜单「书架密码」/ 新建或编辑书籍时填写书籍密码'
       }
     ],
-    ai: [
-      {
-        title: '⚙️ AI 设置',
-        listType: 'ul',
-        items: [
-          'DeepSeek：起名、润色、续写、场景图提炼',
-          '图像 AI：通义万相、Gemini Imagen、豆包（火山方舟），用于封面 / 人物图 / 场景图',
-          '支持一键验证 API Key'
-        ],
-        entry: '首页左侧菜单「AI 设置」'
-      },
-      {
-        title: '✍️ AI 润色 / 续写 / 场景图',
-        paragraphs: [
-          '章节页右上角可直接使用 AI 工具，对选中文本润色、按上下文续写，或生成场景图。'
-        ],
-        tip: '使用前请先验证 API Key 与网络可用性。'
-      },
-      {
-        title: '🎨 AI 封面与人物图',
-        paragraphs: ['支持多图候选、标签预设、确认使用流程，生成结果会保存到当前书籍目录。']
-      }
-    ],
     advanced: [
       {
         title: '👥 人物谱 / 关系图 / 组织架构',
@@ -231,7 +208,6 @@ const guideData = {
         items: [
           '先搭设定（人物、关系、地图、时间线）',
           '再按章节创作并结合实时统计推进',
-          '关键段落使用 AI 辅助打磨',
           '定期回顾并用搜索替换统一修订'
         ]
       },
@@ -254,15 +230,6 @@ const guideData = {
         ]
       }
     ],
-    updates: [
-      {
-        title: '检查更新 / 下载更新 / 安装更新',
-        listType: 'ul',
-        items: ['检查更新获取版本信息', '下载更新包并查看进度', '下载完成后安装并重启'],
-        entry: '首页左侧菜单「检查更新」',
-        tip: '若自动更新失败，可前往 Release 页面手动下载安装包覆盖安装。'
-      }
-    ],
     faq: [
       {
         title: 'Q: 如何修改章节名称格式？',
@@ -271,10 +238,6 @@ const guideData = {
       {
         title: 'Q: 人物高亮如何使用？',
         paragraphs: ['A: 在章节页开启「人物高亮」后，系统会自动按人物谱标记色高亮匹配名称。']
-      },
-      {
-        title: 'Q: AI 功能无法使用怎么办？',
-        paragraphs: ['A: 先检查 AI 设置中的 Key 与验证状态，再确认网络与服务可访问。']
       },
       { title: 'Q: 如何备份作品？', paragraphs: ['A: 备份整个书籍目录即可，建议定期备份。'] }
     ],
@@ -349,31 +312,6 @@ const guideData = {
         entry: 'Home sidebar → Bookshelf Password / Book form password field'
       }
     ],
-    ai: [
-      {
-        title: '⚙️ AI Settings',
-        listType: 'ul',
-        items: [
-          'DeepSeek: naming, polishing, continuation, scene prompt refinement',
-          'Image AI: Tongyi Wanxiang, Gemini Imagen, or Doubao (Volcano Ark) for cover / character / scene images',
-          'One-click API key verification'
-        ],
-        entry: 'Home sidebar → AI Settings'
-      },
-      {
-        title: '✍️ AI Polish / Continue / Scene Image',
-        paragraphs: [
-          'Use AI tools in chapter editor to polish selected text, continue writing, or generate scene references.'
-        ],
-        tip: 'Verify API keys and network availability first.'
-      },
-      {
-        title: '🎨 AI Cover & Character Image',
-        paragraphs: [
-          'Generate multiple candidates, compare and confirm one result. Files are saved in the current book directory.'
-        ]
-      }
-    ],
     advanced: [
       {
         title: '👥 Character / Relationship / Organization',
@@ -397,7 +335,6 @@ const guideData = {
         items: [
           'Build settings first (characters, relations, map, timeline)',
           'Write by chapters with real-time metrics',
-          'Use AI tools for key paragraph polishing',
           'Review regularly with search & replace'
         ]
       },
@@ -425,19 +362,6 @@ const guideData = {
         ]
       }
     ],
-    updates: [
-      {
-        title: 'Check / Download / Install Updates',
-        listType: 'ul',
-        items: [
-          'Check latest version info',
-          'Download update package',
-          'Install and restart when download finishes'
-        ],
-        entry: 'Home sidebar → Check Updates',
-        tip: 'If auto-update fails, download the latest installer from the Release page manually.'
-      }
-    ],
     faq: [
       {
         title: 'Q: How to change chapter title format?',
@@ -448,10 +372,6 @@ const guideData = {
         paragraphs: [
           'A: Enable character highlight in chapter editor; matching names are highlighted with profile colors.'
         ]
-      },
-      {
-        title: 'Q: What if AI features fail?',
-        paragraphs: ['A: Verify API keys in AI Settings and check network/service availability.']
       },
       {
         title: 'Q: How do I back up my work?',
@@ -484,7 +404,6 @@ const guideSections = computed(() => [
     cards: content.value.quickStart
   },
   { id: 'core', icon: '✨', title: t('userGuide.tocCore'), cards: content.value.core },
-  { id: 'ai', icon: '🤖', title: t('userGuide.tocAI'), cards: content.value.ai },
   { id: 'advanced', icon: '🎯', title: t('userGuide.tocAdvanced'), cards: content.value.advanced },
   { id: 'tips', icon: '💡', title: t('userGuide.tocTips'), cards: content.value.tips },
   {
@@ -493,7 +412,6 @@ const guideSections = computed(() => [
     title: t('userGuide.tocShortcuts'),
     cards: content.value.shortcuts
   },
-  { id: 'updates', icon: '🔄', title: t('userGuide.tocUpdates'), cards: content.value.updates },
   { id: 'faq', icon: '❓', title: t('userGuide.tocFAQ'), cards: content.value.faq }
 ])
 
@@ -502,11 +420,9 @@ const supportContent = computed(() => content.value.support)
 const tocItems = computed(() => [
   { id: 'quick-start', title: t('userGuide.tocQuickStart'), icon: '🚀' },
   { id: 'core', title: t('userGuide.tocCore'), icon: '✨' },
-  { id: 'ai', title: t('userGuide.tocAI'), icon: '🤖' },
   { id: 'advanced', title: t('userGuide.tocAdvanced'), icon: '🎯' },
   { id: 'tips', title: t('userGuide.tocTips'), icon: '💡' },
   { id: 'shortcuts', title: t('userGuide.tocShortcuts'), icon: '⌨️' },
-  { id: 'updates', title: t('userGuide.tocUpdates'), icon: '🔄' },
   { id: 'faq', title: t('userGuide.tocFAQ'), icon: '❓' },
   { id: 'support', title: t('userGuide.tocSupport'), icon: '📞' }
 ])

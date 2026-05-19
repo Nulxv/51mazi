@@ -41,17 +41,9 @@
       @confirm="handleConfirm"
       @select-cover="handleSelectCoverImage"
       @remove-cover="handleRemoveCoverImage"
-      @open-ai-cover="handleOpenAICoverDialog"
     />
 
     <!-- AI生成封面抽屉 -->
-    <AICoverDrawer
-      v-model="aiCoverDialogVisible"
-      :book-name="form.name"
-      :book-folder-name="(form.originalName || form.name || '').trim()"
-      :book-type="form.type"
-      @cover-generated="handleAICoverGenerated"
-    />
 
     <!-- 密码验证弹框 -->
     <el-dialog v-model="passwordDialogVisible" :title="t('bookshelf.passwordVerify')" width="400px">
@@ -124,7 +116,6 @@ const bookTypeCascaderOptions = BOOK_TYPE_GROUPS.map((g) => ({
 }))
 import { readBooksDir, createBook, deleteBook, updateBook } from '@renderer/service/books'
 import { joinedPathToFileUrl, pathToLocalFileUrl } from '@renderer/utils/localFileUrl'
-import AICoverDrawer from '@renderer/components/AICoverDrawer.vue'
 import BookFormDrawer from '@renderer/components/BookFormDrawer.vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -201,7 +192,6 @@ const books = computed(() => mainStore.books)
 const chartRef = ref(null)
 
 // AI生成封面抽屉显隐
-const aiCoverDialogVisible = ref(false)
 
 // 密码验证相关
 const passwordDialogVisible = ref(false)
@@ -467,48 +457,7 @@ async function loadCoverImagePreview(bookName, coverUrl) {
 }
 
 // 打开 AI 生成封面抽屉（需先填书名和类型）
-function handleOpenAICoverDialog() {
-  if (!form.value.name?.trim() || !form.value.type) {
-    ElMessage.warning(t('bookForm.fillNameAndTypeFirst'))
-    return
-  }
-  aiCoverDialogVisible.value = true
-}
-
 // AI 封面确认成功：回填编辑表单，并对已存在书籍立即同步 mazi.json 与书架封面
-async function handleAICoverGenerated({ localPath }) {
-  form.value.coverImagePath = localPath
-  form.value.coverImagePreview = pathToLocalFileUrl(localPath)
-
-  if (!isEdit.value || !editBookId.value) {
-    await readBooksDir()
-    return
-  }
-
-  const ext = localPath.split('.').pop()?.toLowerCase() || 'png'
-  const coverUrl = `cover.${ext}`
-  const bookData = {
-    id: editBookId.value,
-    name: form.value.name,
-    type: form.value.type,
-    typeName: BOOK_TYPES.find((item) => item.value === form.value.type)?.label,
-    targetCount: form.value.targetCount,
-    intro: form.value.intro,
-    password: form.value.password || null,
-    coverColor: form.value.coverColor || '#22345c',
-    coverUrl
-  }
-  const result = await updateBook({
-    ...bookData,
-    originalName: form.value.originalName
-  })
-  if (!result.success) {
-    ElMessage.error(result.message || t('bookshelf.editFailed'))
-    return
-  }
-  await readBooksDir()
-}
-
 // 刷新图表数据
 async function refreshChart() {
   chartRef.value?.updateData()

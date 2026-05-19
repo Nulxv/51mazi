@@ -13,12 +13,6 @@
           </span>
           {{ t('home.menu.bookshelf') }}
         </div>
-        <div class="menu-item" @click="goToNovelDownload">
-          <span class="menu-item-icon" aria-hidden="true">
-            <Download v-bind="menuIconProps" />
-          </span>
-          {{ t('home.menu.downloadNovel') }}
-        </div>
         <div class="menu-item" @click="showPasswordDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Lock v-bind="menuIconProps" />
@@ -37,12 +31,6 @@
           </span>
           {{ t('home.menu.systemSetting') }}
         </div>
-        <div class="menu-item" @click="handleOpenAISettings">
-          <span class="menu-item-icon" aria-hidden="true">
-            <Sparkles v-bind="menuIconProps" />
-          </span>
-          {{ t('home.menu.aiSetting') }}
-        </div>
         <div class="menu-item" @click="goToUserGuide">
           <span class="menu-item-icon" aria-hidden="true">
             <BookOpenText v-bind="menuIconProps" />
@@ -55,12 +43,6 @@
           </span>
           {{ t('home.menu.helpCenter') }}
         </div>
-        <div class="menu-item" @click="handleCheckUpdate">
-          <span class="menu-item-icon" aria-hidden="true">
-            <RefreshCw v-bind="menuIconProps" />
-          </span>
-          {{ t('home.menu.checkUpdate') }}
-        </div>
         <div class="menu-item" @click="showSponsorDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Gift v-bind="menuIconProps" />
@@ -69,10 +51,8 @@
         </div>
       </div>
 
-      <!-- 左下角：当前版本号 -->
-      <div class="sidebar-footer">
-        <span class="version-text">v{{ currentVersion || '-' }}</span>
-      </div>
+      <!-- 左下角 -->
+      <div class="sidebar-footer"></div>
     </div>
 
     <!-- 书架区 -->
@@ -89,7 +69,6 @@
       align-center
       :close-on-click-modal="false"
       :show-close="false"
-      @opened="onSystemSettingsOpened"
     >
       <el-form label-width="100px" @submit.prevent="handleConfirmDir">
         <el-form-item :label="t('home.systemSettings.booksDir')" required>
@@ -107,19 +86,6 @@
               </el-button>
             </el-col>
           </el-row>
-        </el-form-item>
-        <el-form-item :label="t('home.systemSettings.updateMode')">
-          <el-radio-group
-            v-model="updateMode"
-            class="update-mode-radios"
-            @change="handleUpdateModeChange"
-          >
-            <el-radio value="auto">{{ t('home.systemSettings.autoUpdate') }}</el-radio>
-            <el-radio value="manual">{{ t('home.systemSettings.manualUpdate') }}</el-radio>
-          </el-radio-group>
-          <div class="setting-desc">
-            {{ t('home.systemSettings.updateModeDesc') }}
-          </div>
         </el-form-item>
         <el-form-item :label="t('common.language')">
           <el-select v-model="selectedLocale" style="width: 100%">
@@ -211,8 +177,6 @@
     <BookshelfPasswordSettings v-model="showPasswordDialog" />
 
     <!-- AI 设置 -->
-    <AISettings ref="aiSettingsRef" />
-
     <!-- 感谢gif图片遮罩层 -->
     <Transition name="fade">
       <div v-if="showRewardGif" class="reward-gif-overlay" @click="showRewardGif = false">
@@ -231,24 +195,19 @@ import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Bookshelf from '@renderer/components/Bookshelf.vue'
 import BookshelfPasswordSettings from '@renderer/components/BookshelfPasswordSettings.vue'
-import AISettings from '@renderer/components/AISettings.vue'
 import EncourageToastScheduler from '@renderer/components/EncourageToastScheduler.vue'
 import { useThemeStore } from '@renderer/stores/theme'
-import { useAppUpdaterStore } from '@renderer/stores/appUpdater'
 import { useI18n } from 'vue-i18n'
 import { getCurrentLocale, setLocale } from '@renderer/i18n'
 import { ElDialog, ElMessage } from 'element-plus'
 import {
   BookOpenText,
   CircleQuestionMark,
-  Download,
   Gift,
   Library,
   Lock,
   Palette,
-  RefreshCw,
-  Settings,
-  Sparkles
+  Settings
 } from 'lucide-vue-next'
 
 /** 侧栏菜单：统一 Lucide 描边与尺寸，保证风格一致 */
@@ -258,8 +217,6 @@ const router = useRouter()
 const { t } = useI18n()
 const showDirDialog = ref(false)
 const bookDir = ref('')
-/** 更新方式：auto 自动更新（默认） | manual 手动更新 */
-const updateMode = ref('auto')
 const selectedLocale = ref('zh-CN')
 const bookshelfRef = ref(null)
 const showThemeDialog = ref(false)
@@ -268,15 +225,12 @@ const showSponsorDialog = ref(false)
 const showPasswordDialog = ref(false)
 const showRewardGif = ref(false)
 const themeStore = useThemeStore()
-const appUpdaterStore = useAppUpdaterStore()
-const aiSettingsRef = ref(null)
 const qqGroupQrcode = new URL('../../../../static/QQQRCode.png', import.meta.url).href
 const wechatPayQrcode = new URL('../../../../static/WeChatPayQRCode.png', import.meta.url).href
 const alipayQrcode = new URL('../../../../static/AliPayQRCode.png', import.meta.url).href
 const xiezhulongenGif = new URL('../assets/images/xiezhulongen.gif', import.meta.url).href
 const contactEmail = 'fomazi@163.com'
 
-const currentVersion = ref('')
 const localeOptions = [
   { value: 'zh-CN', label: '简体中文' },
   { value: 'en-US', label: 'English' }
@@ -317,12 +271,6 @@ async function validateBooksDirOrNotify(pathValue) {
 let sponsorDialogTimer = null
 
 // 打开 AI 设置
-function handleOpenAISettings() {
-  if (aiSettingsRef.value) {
-    aiSettingsRef.value.open()
-  }
-}
-
 // 检查本地存储是否有bookDir
 onMounted(async () => {
   const dir = await window.electronStore?.get('booksDir')
@@ -331,18 +279,11 @@ onMounted(async () => {
   } else {
     bookDir.value = dir
   }
-  // 初始化更新方式（用于弹框打开时展示）
-  const savedUpdateMode = await window.electronStore?.get('app.updateMode')
-  if (savedUpdateMode === 'auto' || savedUpdateMode === 'manual') {
-    updateMode.value = savedUpdateMode
-  }
   selectedLocale.value = getCurrentLocale()
   // 初始化主题
   await themeStore.initTheme()
   // 检查是否需要自动显示赞助弹框
   await checkAutoShowSponsorDialog()
-  // 获取当前版本
-  await getCurrentVersion()
 })
 
 // 清理定时器
@@ -549,24 +490,6 @@ async function handleConfirmDir() {
   }
 }
 
-// 系统设置弹框打开时，同步一次更新方式（从 store 读取，保证与主进程一致）
-async function onSystemSettingsOpened() {
-  const saved = await window.electronStore?.get('app.updateMode')
-  if (saved === 'auto' || saved === 'manual') {
-    updateMode.value = saved
-  }
-  selectedLocale.value = getCurrentLocale()
-}
-
-// 用户切换更新方式时，通知主进程并持久化，自动更新逻辑会立即暂停或恢复
-async function handleUpdateModeChange(mode) {
-  try {
-    await window.electron?.setUpdateMode?.(mode)
-  } catch (e) {
-    console.error('设置更新方式失败:', e)
-  }
-}
-
 // 获取可用主题列表
 const availableThemes = themeStore.getAvailableThemes()
 
@@ -593,37 +516,6 @@ const goToUserGuide = () => {
   router.push('/user-guide')
 }
 
-const goToNovelDownload = () => {
-  router.push('/novel-download')
-}
-
-// 获取当前版本
-async function getCurrentVersion() {
-  try {
-    const result = await window.electron?.getAppVersion()
-    if (result?.version) {
-      currentVersion.value = result.version
-    }
-  } catch (error) {
-    console.error('获取当前版本失败:', error)
-  }
-}
-
-// 手动检查更新（窗口事件由 App 根 composable 统一订阅，状态在 appUpdater store）
-async function handleCheckUpdate() {
-  try {
-    appUpdaterStore.beginManualCheck()
-    const result = await window.electron?.checkForUpdate()
-    if (!result?.success) {
-      ElMessage.error(result?.message || t('home.update.checkFailed'))
-      appUpdaterStore.dismissAfterManualCheckFailure()
-    }
-  } catch (error) {
-    console.error('检查更新失败:', error)
-    ElMessage.error(t('home.update.checkFailed'))
-    appUpdaterStore.dismissAfterManualCheckFailure()
-  }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -668,14 +560,6 @@ async function handleCheckUpdate() {
   margin-top: auto;
   height: fit-content;
   line-height: normal;
-}
-
-.version-text {
-  display: inline-block;
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--text-gray);
-  user-select: none;
 }
 
 .menu-item {
@@ -831,18 +715,6 @@ async function handleCheckUpdate() {
   margin: 0;
   font-size: 14px;
   color: var(--text-secondary);
-}
-
-/* 更新方式两个单选项之间的间距 */
-.update-mode-radios :deep(.el-radio) {
-  margin-right: 24px;
-}
-
-.setting-desc {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
 }
 
 .dialog-link {

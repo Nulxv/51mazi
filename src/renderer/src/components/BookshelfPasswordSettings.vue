@@ -7,7 +7,6 @@
     @close="handleClose"
   >
     <div v-if="!hasPassword">
-      <!-- 未设置密码：显示设置表单 -->
       <el-form
         ref="passwordFormRef"
         :model="passwordForm"
@@ -34,11 +33,9 @@
       </el-form>
     </div>
     <div v-else>
-      <!-- 已设置密码：显示缩略密码和操作按钮 -->
       <div v-if="!isModifyingPassword" class="password-display">
-        <div class="masked-password-text">{{ maskedPassword }}</div>
+        <div class="masked-password-text">********</div>
       </div>
-      <!-- 修改密码表单 -->
       <el-form
         v-else
         ref="modifyPasswordFormRef"
@@ -116,13 +113,10 @@ const dialogVisible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
-// 书架密码相关状态
-const storedPassword = ref('')
 const hasPassword = ref(false)
 const isModifyingPassword = ref(false)
 const passwordLoading = ref(false)
 
-// 密码表单
 const passwordForm = ref({
   password: '',
   confirmPassword: ''
@@ -136,7 +130,6 @@ const modifyPasswordForm = ref({
 })
 const modifyPasswordFormRef = ref(null)
 
-// 密码验证规则
 const validatePassword = (rule, value, callback) => {
   if (!value) {
     callback(new Error(t('bookshelfPassword.pleaseInputPassword')))
@@ -165,15 +158,12 @@ const passwordRules = {
 const validateOldPassword = (rule, value, callback) => {
   if (!value) {
     callback(new Error(t('bookshelfPassword.pleaseInputOldPassword')))
-  } else if (value !== storedPassword.value) {
-    callback(new Error(t('bookshelfPassword.oldPasswordIncorrect')))
   } else {
     callback()
   }
 }
 
 const validateNewPassword = (rule, value, callback) => {
-  // 允许空值（表示取消密码）
   if (!value || value.trim() === '') {
     callback()
   } else if (!/^[a-zA-Z0-9]{8,16}$/.test(value)) {
@@ -185,22 +175,18 @@ const validateNewPassword = (rule, value, callback) => {
 
 const validateConfirmNewPassword = (rule, value, callback) => {
   const newPassword = modifyPasswordForm.value.newPassword
-  // 如果新密码为空，确认密码也应该为空
   if (!newPassword || newPassword.trim() === '') {
     if (value && value.trim() !== '') {
       callback(new Error(t('bookshelfPassword.confirmShouldEmptyWhenCancel')))
     } else {
       callback()
     }
+  } else if (!value) {
+    callback(new Error(t('bookshelfPassword.pleaseConfirmNewPassword')))
+  } else if (value !== newPassword) {
+    callback(new Error(t('bookshelfPassword.newPasswordNotMatch')))
   } else {
-    // 如果新密码不为空，确认密码不能为空且必须一致
-    if (!value) {
-      callback(new Error(t('bookshelfPassword.pleaseConfirmNewPassword')))
-    } else if (value !== newPassword) {
-      callback(new Error(t('bookshelfPassword.newPasswordNotMatch')))
-    } else {
-      callback()
-    }
+    callback()
   }
 }
 
@@ -210,44 +196,20 @@ const modifyPasswordRules = {
   confirmNewPassword: [{ validator: validateConfirmNewPassword, trigger: 'blur' }]
 }
 
-// 计算缩略密码
-const maskedPassword = computed(() => {
-  if (!storedPassword.value) return ''
-  const pwd = storedPassword.value
-  if (pwd.length <= 4) {
-    return '****'
-  }
-  const start = pwd.substring(0, 2)
-  const end = pwd.substring(pwd.length - 2)
-  return `${start}****${end}`
-})
-
-// 加载密码数据
-async function loadPassword() {
-  const password = await window.electronStore?.get('bookshelfPassword')
-  if (password) {
-    storedPassword.value = password
-    hasPassword.value = true
-  } else {
-    storedPassword.value = ''
-    hasPassword.value = false
-  }
+async function loadPasswordStatus() {
+  hasPassword.value = Boolean(await window.electron?.hasBookshelfPassword?.())
 }
 
-// 监听弹框打开，加载密码数据
 watch(
   () => props.modelValue,
   async (newVal) => {
     if (newVal) {
-      await loadPassword()
+      await loadPasswordStatus()
     }
   }
 )
 
-// 关闭弹框
-function handleClose() {
-  dialogVisible.value = false
-  // 重置状态
+function resetForms() {
   isModifyingPassword.value = false
   passwordForm.value = { password: '', confirmPassword: '' }
   modifyPasswordForm.value = {
@@ -255,38 +217,36 @@ function handleClose() {
     newPassword: '',
     confirmNewPassword: ''
   }
-  if (passwordFormRef.value) {
-    passwordFormRef.value.clearValidate()
-  }
-  if (modifyPasswordFormRef.value) {
-    modifyPasswordFormRef.value.clearValidate()
-  }
+
+  passwordFormRef.value?.clearValidate?.()
+  modifyPasswordFormRef.value?.clearValidate?.()
 }
 
-// 设置密码
+function handleClose() {
+  dialogVisible.value = false
+  resetForms()
+}
+
 async function handleSetPassword() {
   if (!passwordFormRef.value) return
   await passwordFormRef.value.validate(async (valid) => {
-    if (valid) {
-      passwordLoading.value = true
-      try {
-        await window.electronStore?.set('bookshelfPassword', passwordForm.value.password)
-        storedPassword.value = passwordForm.value.password
-        hasPassword.value = true
-        ElMessage.success(t('bookshelfPassword.setSuccess'))
-        handleClose()
-        // 刷新页面，进入认证流程
-        window.location.reload()
-      } catch {
-        ElMessage.error(t('bookshelfPassword.setFailed'))
-      } finally {
-        passwordLoading.value = false
-      }
+    if (!valid) return
+
+    passwordLoading.value = true
+    try {
+      await window.electron?.setBookshelfPassword?.(passwordForm.value.password)
+      hasPassword.value = true
+      ElMessage.success(t('bookshelfPassword.setSuccess'))
+      handleClose()
+      window.location.reload()
+    } catch {
+      ElMessage.error(t('bookshelfPassword.setFailed'))
+    } finally {
+      passwordLoading.value = false
     }
   })
 }
 
-// 取消修改密码
 function handleCancelModify() {
   isModifyingPassword.value = false
   modifyPasswordForm.value = {
@@ -294,53 +254,46 @@ function handleCancelModify() {
     newPassword: '',
     confirmNewPassword: ''
   }
-  if (modifyPasswordFormRef.value) {
-    modifyPasswordFormRef.value.clearValidate()
-  }
+  modifyPasswordFormRef.value?.clearValidate?.()
 }
 
-// 修改密码
 async function handleModifyPassword() {
   if (!modifyPasswordFormRef.value) return
   await modifyPasswordFormRef.value.validate(async (valid) => {
-    if (valid) {
-      passwordLoading.value = true
-      try {
-        const newPassword = modifyPasswordForm.value.newPassword?.trim()
-        if (!newPassword) {
-          // 新密码为空，表示取消密码
-          await window.electronStore?.delete('bookshelfPassword')
-          storedPassword.value = ''
-          hasPassword.value = false
-          ElMessage.success(t('bookshelfPassword.cancelSuccess'))
+    if (!valid) return
+
+    passwordLoading.value = true
+    try {
+      const result = await window.electron?.updateBookshelfPassword?.({
+        oldPassword: modifyPasswordForm.value.oldPassword,
+        newPassword: modifyPasswordForm.value.newPassword
+      })
+
+      if (!result?.success) {
+        if (result?.code === 'INVALID_OLD_PASSWORD') {
+          ElMessage.error(t('bookshelfPassword.oldPasswordIncorrect'))
         } else {
-          // 设置新密码
-          await window.electronStore?.set('bookshelfPassword', newPassword)
-          storedPassword.value = newPassword
-          hasPassword.value = true
-          ElMessage.success(t('bookshelfPassword.modifySuccess'))
+          ElMessage.error(t('bookshelfPassword.actionFailed'))
         }
-        isModifyingPassword.value = false
-        modifyPasswordForm.value = {
-          oldPassword: '',
-          newPassword: '',
-          confirmNewPassword: ''
-        }
-        handleClose()
-        // 刷新页面
-        window.location.reload()
-      } catch {
-        ElMessage.error(t('bookshelfPassword.actionFailed'))
-      } finally {
-        passwordLoading.value = false
+        return
       }
+
+      hasPassword.value = !result.removed
+      ElMessage.success(
+        result.removed ? t('bookshelfPassword.cancelSuccess') : t('bookshelfPassword.modifySuccess')
+      )
+      handleClose()
+      window.location.reload()
+    } catch {
+      ElMessage.error(t('bookshelfPassword.actionFailed'))
+    } finally {
+      passwordLoading.value = false
     }
   })
 }
 </script>
 
 <style lang="scss" scoped>
-// 密码设置弹框样式
 .password-display {
   padding: 20px 0;
   text-align: center;

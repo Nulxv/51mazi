@@ -81,52 +81,47 @@ const routes = [
     name: 'OrganizationDesign',
     component: () => import('@renderer/views/OrganizationDesign.vue')
   },
-  {
-    path: '/novel-download',
-    name: 'NovelDownload',
-    component: () => import('@renderer/views/NovelDownload.vue')
-  }
-  // 在这里添加更多路由配置
+  // 鍦ㄨ繖閲屾坊鍔犳洿澶氳矾鐢遍厤缃?
 ]
 
 const router = createRouter({
-  // 在 Electron 中使用 hash 模式
+  // 鍦?Electron 涓娇鐢?hash 妯″紡
   history: createWebHashHistory(),
   routes
 })
 
-// 路由守卫：检查书架密码
+// 璺敱瀹堝崼锛氭鏌ヤ功鏋跺瘑鐮?
 router.beforeEach(async (to, from, next) => {
-  // 如果访问认证页面，直接通过
+  // 濡傛灉璁块棶璁よ瘉椤甸潰锛岀洿鎺ラ€氳繃
   if (to.name === 'Auth') {
     next()
     return
   }
 
-  // 检查是否有书架密码
-  const password = await window.electronStore?.get('bookshelfPassword')
-  if (password) {
-    // 优先检查本窗口 sessionStorage（同窗口内跳转路由时的快速判断）
+  // 妫€鏌ユ槸鍚︽湁涔︽灦瀵嗙爜
+  const hasPassword = await window.electron?.hasBookshelfPassword?.()
+  if (hasPassword) {
+    // 浼樺厛妫€鏌ユ湰绐楀彛 sessionStorage锛堝悓绐楀彛鍐呰烦杞矾鐢辨椂鐨勫揩閫熷垽鏂級
     const sessionAuthenticated = sessionStorage.getItem('bookshelfAuthenticated') === 'true'
     if (sessionAuthenticated) {
       next()
       return
     }
 
-    // sessionStorage 中没有标记时（新窗口场景），向主进程查询当前会话的认证状态。
-    // 主进程的 bookshelfAuthenticated 变量在应用启动时为 false，
-    // 用户在任意窗口完成书架密码验证后即被设为 true，重启应用后自动重置。
+    // sessionStorage 涓病鏈夋爣璁版椂锛堟柊绐楀彛鍦烘櫙锛夛紝鍚戜富杩涚▼鏌ヨ褰撳墠浼氳瘽鐨勮璇佺姸鎬併€?
+    // 涓昏繘绋嬬殑 bookshelfAuthenticated 鍙橀噺鍦ㄥ簲鐢ㄥ惎鍔ㄦ椂涓?false锛?
+    // 鐢ㄦ埛鍦ㄤ换鎰忕獥鍙ｅ畬鎴愪功鏋跺瘑鐮侀獙璇佸悗鍗宠璁句负 true锛岄噸鍚簲鐢ㄥ悗鑷姩閲嶇疆銆?
     const mainProcessAuthenticated = await window.electron?.getBookshelfAuthenticated?.()
     if (mainProcessAuthenticated) {
-      // 同步到本窗口 sessionStorage，避免后续每次路由跳转都发起 IPC 调用
+      // 鍚屾鍒版湰绐楀彛 sessionStorage锛岄伩鍏嶅悗缁瘡娆¤矾鐢辫烦杞兘鍙戣捣 IPC 璋冪敤
       sessionStorage.setItem('bookshelfAuthenticated', 'true')
       next()
     } else {
-      // 未认证，跳转到认证页面
+      // 鏈璇侊紝璺宠浆鍒拌璇侀〉闈?
       next({ name: 'Auth' })
     }
   } else {
-    // 没有密码，直接通过
+    // 娌℃湁瀵嗙爜锛岀洿鎺ラ€氳繃
     next()
   }
 })

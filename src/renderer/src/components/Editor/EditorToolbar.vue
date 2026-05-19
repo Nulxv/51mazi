@@ -22,20 +22,17 @@
         </el-button>
       </el-tooltip>
     </div>
-    <RandomName ref="randomNameRef" />
     <BannedWordsDrawer ref="bannedWordsRef" :book-name="route.query.name" />
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import RandomName from '@renderer/components/RandomName.vue'
 import BannedWordsDrawer from './BannedWordsDrawer.vue'
 import { useRouter, useRoute } from 'vue-router'
 import SvgIcon from '@renderer/components/SvgIcon.vue'
 import { useI18n } from 'vue-i18n'
 
-const randomNameRef = ref(null)
 const bannedWordsRef = ref(null)
 const router = useRouter()
 const route = useRoute()
@@ -53,10 +50,6 @@ const props = defineProps({
 })
 
 // 工具栏功能处理函数
-const handleRandomName = () => {
-  randomNameRef.value.open()
-}
-
 const handleWorldMap = () => {
   // 跳转到地图列表页面，带上当前书籍名
   const bookName = route.query.name
@@ -125,12 +118,6 @@ const toolbarItems = computed(() => [
     icon: 'config',
     label: t('editorToolbar.settingManager'),
     onClick: handleSettingManager
-  },
-  {
-    key: 'random-name',
-    icon: 'naming',
-    label: t('editorToolbar.randomName'),
-    onClick: handleRandomName
   },
   { key: 'map', icon: 'map', label: t('editorToolbar.worldMap'), onClick: handleWorldMap },
   {

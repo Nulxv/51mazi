@@ -350,10 +350,6 @@
               <el-button @click="selectLocalImageForCharacterImage">
                 {{ t('characterProfile.selectLocalImage') }}
               </el-button>
-              <el-button type="success" @click="openAICharacterDrawer">
-                <el-icon><MagicStick /></el-icon>
-                {{ kindUi.aiGenLabel }}
-              </el-button>
             </div>
           </div>
         </div>
@@ -468,28 +464,6 @@
   </el-drawer>
 
   <!-- AI 生图：人物/坐骑等均走同一抽屉，文案与 prompt 前缀随档案类型变化 -->
-  <AICharacterDrawer
-    v-model="aiCharacterDrawerVisible"
-    :book-name="bookName"
-    :character-name="characterForm.name"
-    :appearance="characterForm.appearance"
-    :drawer-title="kindUi.aiDrawerTitle"
-    :subject-label="kindUi.aiSubjectLabel"
-    :prompt-intro="kindUi.aiPromptIntro"
-    :prompt-detail-prefix="kindUi.aiPromptDetailPrefix"
-    :prompt-placeholder="kindUi.aiPromptPlaceholder"
-    :pose-placeholder="kindUi.aiPosePlaceholder"
-    :output-tip="kindUi.aiOutputTip"
-    :generated-image-type-name="kindUi.aiGeneratedTypeName"
-    :generate-button-text="kindUi.aiGenerateBtn"
-    :generating-hint="kindUi.aiGeneratingHint"
-    :info-generating-message="kindUi.aiInfoToast"
-    :validate-prompt-message="kindUi.aiValidatePrompt"
-    :confirm-success-message="kindUi.aiConfirmSuccess"
-    :generate-fail-type-name="kindUi.aiFailTypeName"
-    @character-image-generated="onAICharacterImageGenerated"
-  />
-
   <!-- 图片预览器 -->
   <el-image-viewer
     v-if="imageViewerVisible"
@@ -504,8 +478,7 @@ import LayoutTool from '@renderer/components/LayoutTool.vue'
 import { ref, reactive, onMounted, watch, toRaw, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Grid, List, Edit, MagicStick } from '@element-plus/icons-vue'
-import AICharacterDrawer from '@renderer/components/AICharacterDrawer.vue'
+import { Plus, Delete, Grid, List, Edit } from '@element-plus/icons-vue'
 import { genId } from '@renderer/utils/utils'
 import Sortable from 'sortablejs'
 import { useI18n } from 'vue-i18n'
@@ -513,7 +486,6 @@ import { useI18n } from 'vue-i18n'
 const route = useRoute()
 const { t } = useI18n()
 const drawerVisible = ref(false)
-const aiCharacterDrawerVisible = ref(false)
 const isEdit = ref(false)
 const bookName = route.query.name || ''
 
@@ -1226,10 +1198,6 @@ function previewCharacterAvatar(character) {
 }
 
 // 打开 AI 生成人物图抽屉（生成竖版全身人物图）
-function openAICharacterDrawer() {
-  aiCharacterDrawerVisible.value = true
-}
-
 // 兼容：人物图可能是旧字段 characterImage 或新字段 characterImages
 function normalizeCharacterImages(character) {
   if (Array.isArray(character.characterImages) && character.characterImages.length) {
@@ -1246,11 +1214,6 @@ function getCharacterImages(character) {
 }
 
 // AI 生成人物图确认使用后，追加到人物图列表
-function onAICharacterImageGenerated({ localPath }) {
-  const path = localPath.startsWith('file://') ? localPath : `file://${localPath}`
-  characterForm.characterImages.push(path)
-}
-
 // 预览表单人物图列表（从某张开始）
 function previewFormCharacterImages(initialIndex = 0) {
   const list = characterForm.characterImages.map((img) => getAvatarSrc(img))
