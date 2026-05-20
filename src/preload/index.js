@@ -36,6 +36,7 @@ const customElectronAPI = {
   hasBookshelfPassword: () => ipcRenderer.invoke('auth:has-bookshelf-password'),
   // 书架密码：校验输入密码
   verifyBookshelfPassword: (password) => ipcRenderer.invoke('auth:verify-bookshelf-password', password),
+  verifyBookPassword: (payload) => ipcRenderer.invoke('auth:verify-book-password', payload),
   // 书架密码：设置新密码
   setBookshelfPassword: (password) => ipcRenderer.invoke('auth:set-bookshelf-password', password),
   // 书架密码：更新或删除密码

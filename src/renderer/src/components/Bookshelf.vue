@@ -205,9 +205,13 @@ const passwordRules = computed(() => ({
 const pendingAction = ref(null) // 存储待执行的操作
 const currentBook = ref(null) // 当前操作的书籍
 
+function requiresBookPassword(book) {
+  return Boolean(book?.hasPassword || book?.password)
+}
+
 // 打开书籍
 function onOpen(book) {
-  if (book.password) {
+  if (requiresBookPassword(book)) {
     // 有密码，需要验证
     currentBook.value = book
     pendingAction.value = 'open'
@@ -234,7 +238,7 @@ function executeOpenBook(book) {
 
 // 右键菜单相关
 function onEdit(book) {
-  if (book.password) {
+  if (requiresBookPassword(book)) {
     // 有密码，需要验证
     currentBook.value = book
     pendingAction.value = 'edit'
@@ -255,8 +259,8 @@ function executeEditBook(book) {
   form.value.type = book.type
   form.value.targetCount = book.targetCount
   form.value.intro = book.intro
-  form.value.password = book.password || ''
-  form.value.confirmPassword = book.password || ''
+  form.value.password = ''
+  form.value.confirmPassword = ''
   form.value.coverColor = book.coverColor || '#22345c'
   // 编辑模式下，coverImagePath 应该为空（除非用户选择新图片）
   // coverImagePreview 用于显示原有封面
@@ -272,7 +276,7 @@ function executeEditBook(book) {
 }
 
 async function onDelete(book) {
-  if (book.password) {
+  if (requiresBookPassword(book)) {
     // 有密码，需要验证
     currentBook.value = book
     pendingAction.value = 'delete'
@@ -320,7 +324,12 @@ async function handlePasswordConfirm() {
   try {
     await passwordFormRef.value.validate()
 
-    if (passwordForm.value.password === currentBook.value.password) {
+    const result = await window.electron?.verifyBookPassword?.({
+      bookName: currentBook.value.folderName || currentBook.value.name,
+      password: passwordForm.value.password
+    })
+
+    if (result?.success) {
       // 密码正确，执行对应操作
       passwordDialogVisible.value = false
 

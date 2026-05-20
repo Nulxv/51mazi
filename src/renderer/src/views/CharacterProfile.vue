@@ -1277,16 +1277,14 @@ function getAvatarSrc(avatarPath) {
   if (!avatarPath) return ''
 
   // 如果已经是完整的URL（包含协议），直接返回
-  if (
-    avatarPath.startsWith('http://') ||
-    avatarPath.startsWith('https://') ||
-    avatarPath.startsWith('file://') ||
-    avatarPath.startsWith('data:')
-  ) {
+  if (avatarPath.startsWith('file://') || avatarPath.startsWith('data:')) {
     return avatarPath
   }
 
-  // 如果是本地文件路径，添加 file:// 协议
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return ''
+  }
+
   return `file://${avatarPath}`
 }
 

@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, nativeImage, screen } from 'electron'
-import { join, resolve, sep } from 'path'
+import { join, resolve } from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -95,6 +95,8 @@ const PROTECTED_STORE_KEYS = new Set([
   'bookshelfPasswordSalt'
 ])
 
+const BOOK_PASSWORD_FIELD_KEYS = ['password', 'passwordHash', 'passwordSalt']
+
 function isProtectedStoreKey(key) {
   return PROTECTED_STORE_KEYS.has(String(key || ''))
 }
@@ -156,6 +158,80 @@ function verifyBookshelfPassword(password) {
   }
 
   return false
+}
+
+function sanitizeBookFolderName(name) {
+  return String(name || '').replace(/[\\/:*?"<>|]/g, '_')
+}
+
+function hashBookPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const normalizedPassword = String(password || '')
+  const hash = crypto.scryptSync(normalizedPassword, salt, 64).toString('hex')
+  return { salt, hash }
+}
+
+function getBookPasswordRecord(meta) {
+  return {
+    legacyPassword: typeof meta?.password === 'string' ? meta.password : '',
+    hash: typeof meta?.passwordHash === 'string' ? meta.passwordHash : '',
+    salt: typeof meta?.passwordSalt === 'string' ? meta.passwordSalt : ''
+  }
+}
+
+function hasBookPassword(meta) {
+  const record = getBookPasswordRecord(meta)
+  return Boolean(record.legacyPassword || (record.hash && record.salt))
+}
+
+function clearBookPasswordFields(meta) {
+  for (const key of BOOK_PASSWORD_FIELD_KEYS) {
+    delete meta[key]
+  }
+}
+
+function setBookPasswordFields(meta, password) {
+  clearBookPasswordFields(meta)
+  const normalizedPassword = String(password || '').trim()
+  if (!normalizedPassword) return
+  const { hash, salt } = hashBookPassword(normalizedPassword)
+  meta.passwordHash = hash
+  meta.passwordSalt = salt
+}
+
+function verifyBookPassword(meta, password) {
+  const candidate = String(password || '')
+  const record = getBookPasswordRecord(meta)
+
+  if (record.hash && record.salt) {
+    const candidateHash = crypto.scryptSync(candidate, record.salt, 64)
+    const storedHash = Buffer.from(record.hash, 'hex')
+    if (candidateHash.length !== storedHash.length) return false
+    return crypto.timingSafeEqual(candidateHash, storedHash)
+  }
+
+  return Boolean(record.legacyPassword) && candidate === record.legacyPassword
+}
+
+function normalizeBookMetaPrivacy(meta) {
+  const normalizedMeta = meta && typeof meta === 'object' ? { ...meta } : {}
+  const record = getBookPasswordRecord(normalizedMeta)
+  if (record.legacyPassword) {
+    setBookPasswordFields(normalizedMeta, record.legacyPassword)
+  } else if (!(record.hash && record.salt)) {
+    clearBookPasswordFields(normalizedMeta)
+  }
+  return normalizedMeta
+}
+
+function sanitizeBookMetaForRenderer(meta) {
+  const normalizedMeta = normalizeBookMetaPrivacy(meta)
+  const protectedBook = hasBookPassword(normalizedMeta)
+  clearBookPasswordFields(normalizedMeta)
+  return {
+    ...normalizedMeta,
+    password: protectedBook,
+    hasPassword: protectedBook
+  }
 }
 
 ipcMain.handle('store:get', async (_, key) => {
@@ -223,6 +299,28 @@ ipcMain.handle('auth:update-bookshelf-password', async (_, { oldPassword, newPas
 
   persistBookshelfPassword(normalizedNewPassword)
   return { success: true, removed: false }
+})
+
+ipcMain.handle('auth:verify-book-password', async (_, { bookName, password }) => {
+  try {
+    const booksDir = store.get('booksDir')
+    const resolvedBookName = sanitizeBookFolderName(bookName)
+    if (!booksDir || !resolvedBookName) {
+      return { success: false }
+    }
+
+    const metaPath = join(booksDir, resolvedBookName, 'mazi.json')
+    if (!fs.existsSync(metaPath)) {
+      return { success: false }
+    }
+
+    const meta = normalizeBookMetaPrivacy(JSON.parse(fs.readFileSync(metaPath, 'utf-8')))
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
+    return { success: verifyBookPassword(meta, password) }
+  } catch (error) {
+    console.error('verify-book-password failed:', error)
+    return { success: false }
+  }
 })
 
 // 维护已打开书籍编辑窗口的映射
@@ -521,7 +619,7 @@ ipcMain.handle('write-export-file', async (event, { filePath, content }) => {
 // 创建书籍
 ipcMain.handle('create-book', async (event, bookInfo) => {
   // 1. 处理文件夹名合法性
-  const safeName = bookInfo.name.replace(/[\\/:*?"<>|]/g, '_')
+  const safeName = sanitizeBookFolderName(bookInfo.name)
   const booksDir = store.get('booksDir')
   const bookPath = join(booksDir, safeName)
   if (!fs.existsSync(bookPath)) {
@@ -553,6 +651,7 @@ ipcMain.handle('create-book', async (event, bookInfo) => {
     createdAt: dayjs().format('YYYY/MM/DD HH:mm:ss'),
     updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss')
   }
+  setBookPasswordFields(meta, bookInfo.password)
   fs.writeFileSync(join(bookPath, 'mazi.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
   // 3. 创建正文和笔记文件夹
@@ -595,9 +694,10 @@ ipcMain.handle('read-books-dir', async () => {
       const metaPath = join(booksDir, file.name, 'mazi.json')
       if (fs.existsSync(metaPath)) {
         try {
-          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          const meta = normalizeBookMetaPrivacy(JSON.parse(fs.readFileSync(metaPath, 'utf-8')))
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf-8')
           // 返回 meta 并带上实际目录名 folderName，供前端构建封面等路径使用（创建时目录名可能被 safeName 替换）
-          books.push({ ...meta, folderName: file.name })
+          books.push({ ...sanitizeBookMetaForRenderer(meta), folderName: file.name })
         } catch (e) {
           // ignore parse error
           console.error('read-books-dir', e)
@@ -649,7 +749,7 @@ ipcMain.handle('delete-book', async (event, { name }) => {
       return false
     }
 
-    const bookPath = join(booksDir, name)
+    const bookPath = join(booksDir, sanitizeBookFolderName(name))
 
     if (!fs.existsSync(bookPath)) {
       return false
@@ -680,7 +780,7 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
     const metaPath = join(bookPath, 'mazi.json')
 
     // 读取现有元数据
-    const existingMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+    const existingMeta = normalizeBookMetaPrivacy(JSON.parse(fs.readFileSync(metaPath, 'utf-8')))
 
     // 处理封面图片（如果有新的封面图片）
     let coverUrl = bookInfo.coverUrl || existingMeta.coverUrl || null
@@ -747,7 +847,7 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
 
     // 如果书名发生变化，需要重命名文件夹
     if (bookInfo.name !== originalName) {
-      const newBookPath = join(booksDir, bookInfo.name)
+      const newBookPath = join(booksDir, sanitizeBookFolderName(bookInfo.name))
 
       // 检查新名称是否已存在
       if (fs.existsSync(newBookPath)) {
@@ -770,6 +870,15 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
         coverUrl,
         updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss') // 閺囧瓨鏌婃穱顔芥暭閺冨爼妫?
       }
+      if (String(bookData.password || '').trim()) {
+        setBookPasswordFields(mergedMeta, bookData.password)
+      } else {
+        clearBookPasswordFields(mergedMeta)
+        if (hasBookPassword(existingMeta)) {
+          mergedMeta.passwordHash = existingMeta.passwordHash
+          mergedMeta.passwordSalt = existingMeta.passwordSalt
+        }
+      }
       fs.writeFileSync(newMetaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     } else {
       // 书名未变化，直接更新元数据
@@ -780,6 +889,15 @@ ipcMain.handle('edit-book', async (event, bookInfo) => {
         ...bookData,
         coverUrl,
         updatedAt: dayjs().format('YYYY/MM/DD HH:mm:ss') // 閺囧瓨鏌婃穱顔芥暭閺冨爼妫?
+      }
+      if (String(bookData.password || '').trim()) {
+        setBookPasswordFields(mergedMeta, bookData.password)
+      } else {
+        clearBookPasswordFields(mergedMeta)
+        if (hasBookPassword(existingMeta)) {
+          mergedMeta.passwordHash = existingMeta.passwordHash
+          mergedMeta.passwordSalt = existingMeta.passwordSalt
+        }
       }
       fs.writeFileSync(metaPath, JSON.stringify(mergedMeta, null, 2), 'utf-8')
     }
