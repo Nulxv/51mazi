@@ -21,7 +21,7 @@ const customElectronAPI = {
   // 读取书籍目录
   readBooksDir: () => ipcRenderer.invoke('read-books-dir'),
   // 校验书籍目录（存在性、目录类型、读写权限）
-  validateBooksDir: (dirPath) => ipcRenderer.invoke('validate-books-dir', dirPath),
+  validateBooksDir: (dirPath, options) => ipcRenderer.invoke('validate-books-dir', dirPath, options),
   // 删除书籍
   deleteBook: (name) => ipcRenderer.invoke('delete-book', { name }),
   // 编辑书籍

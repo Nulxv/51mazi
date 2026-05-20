@@ -97,6 +97,10 @@
         </el-form-item>
       </el-form>
       <template #footer>
+        <el-button @click="handleUseDefaultDir">
+          默认目录
+        </el-button>
+        <el-button @click="showDirDialog = false">{{ t('common.cancel') }}</el-button>
         <el-button type="primary" :disabled="!bookDir" @click="handleConfirmDir">
           {{ t('common.confirm') }}
         </el-button>
@@ -251,18 +255,22 @@ function getBooksDirValidationMessage(code) {
   }
 }
 
-async function validateBooksDirOrNotify(pathValue) {
+async function validateBooksDirOrNotify(pathValue, options = {}) {
   const candidate = String(pathValue || '').trim()
   if (!candidate) {
-    ElMessage.warning(t('home.systemSettings.booksDirRequired'))
+    if (!options.silent) {
+      ElMessage.warning(t('home.systemSettings.booksDirRequired'))
+    }
     return null
   }
-  const result = await window.electron?.validateBooksDir?.(candidate)
+  const result = await window.electron?.validateBooksDir?.(candidate, options)
   if (!result?.valid) {
-    ElMessage.warning(getBooksDirValidationMessage(result?.code))
+    if (!options.silent) {
+      ElMessage.warning(getBooksDirValidationMessage(result?.code))
+    }
     return null
   }
-  return candidate
+  return result.path || candidate
 }
 
 // 定时器 ID
@@ -280,6 +288,11 @@ onMounted(async () => {
     } catch (e) {
       console.error('获取默认书籍目录失败:', e)
     }
+  }
+  const preparedDir = await validateBooksDirOrNotify(dir, { allowCreate: true, silent: true })
+  if (preparedDir) {
+    dir = preparedDir
+    await window.electronStore?.set('booksDir', preparedDir)
   }
   bookDir.value = dir || ''
   selectedLocale.value = getCurrentLocale()
@@ -453,9 +466,7 @@ async function handleRewardClick() {
 // 打开系统设置弹窗前，同步当前已保存的目录路径
 async function openSystemSettings() {
   const saved = await window.electronStore?.get('booksDir')
-  if (saved) {
-    bookDir.value = saved
-  }
+  bookDir.value = saved || (await window.electron?.getDefaultBooksDir?.()) || ''
   showDirDialog.value = true
 }
 
@@ -466,10 +477,6 @@ async function handleChooseDir() {
       const validDir = await validateBooksDirOrNotify(result.filePaths[0])
       if (!validDir) return
       bookDir.value = validDir
-      await window.electronStore.set('booksDir', validDir)
-      await nextTick()
-      await bookshelfRef.value?.reloadBookshelf?.()
-      showDirDialog.value = false
     }
   } catch (error) {
     console.error('Failed to choose books directory:', error)
@@ -478,8 +485,20 @@ async function handleChooseDir() {
 }
 
 // 确认目录
+async function handleUseDefaultDir() {
+  try {
+    const defaultDir = await window.electron?.getDefaultBooksDir?.()
+    const validDir = await validateBooksDirOrNotify(defaultDir, { allowCreate: true })
+    if (!validDir) return
+    bookDir.value = validDir
+  } catch (error) {
+    console.error('Failed to use default books directory:', error)
+    ElMessage.error(t('home.systemSettings.saveDirFailed'))
+  }
+}
+
 async function handleConfirmDir() {
-  const nextDir = await validateBooksDirOrNotify(bookDir.value)
+  const nextDir = await validateBooksDirOrNotify(bookDir.value, { allowCreate: true })
   if (!nextDir) return
 
   try {

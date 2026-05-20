@@ -96,6 +96,7 @@ const PROTECTED_STORE_KEYS = new Set([
 ])
 
 const BOOK_PASSWORD_FIELD_KEYS = ['password', 'passwordHash', 'passwordSalt']
+const DEFAULT_BOOKS_DIR = join('D:\\Word\\小说', '51')
 
 function isProtectedStoreKey(key) {
   return PROTECTED_STORE_KEYS.has(String(key || ''))
@@ -162,6 +163,17 @@ function verifyBookshelfPassword(password) {
 
 function sanitizeBookFolderName(name) {
   return String(name || '').replace(/[\\/:*?"<>|]/g, '_')
+}
+
+function ensureDirectoryExists(dirPath) {
+  const normalizedPath = String(dirPath || '').trim()
+  if (!normalizedPath) {
+    throw new Error('Directory path is required')
+  }
+  if (!fs.existsSync(normalizedPath)) {
+    fs.mkdirSync(normalizedPath, { recursive: true })
+  }
+  return normalizedPath
 }
 
 function hashBookPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -530,41 +542,47 @@ app.on('window-all-closed', () => {
 
 // 获取默认书籍目录
 ipcMain.handle('get-default-books-dir', async () => {
-  return join('D:\\Word\\小说', '51')
+  return ensureDirectoryExists(DEFAULT_BOOKS_DIR)
 })
 
 // 选择书籍目录
 ipcMain.handle('select-books-dir', async () => {
+  const currentBooksDir = String(store.get('booksDir') || '').trim()
   const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: currentBooksDir || DEFAULT_BOOKS_DIR,
     properties: ['openDirectory']
   })
   return result
 })
 
 // 校验书籍目录：用于系统设置确认前给出可读错误
-ipcMain.handle('validate-books-dir', async (event, dirPath) => {
+ipcMain.handle('validate-books-dir', async (event, dirPath, options = {}) => {
   try {
     if (!dirPath || typeof dirPath !== 'string') {
       return { valid: false, code: 'EMPTY' }
     }
-    if (!fs.existsSync(dirPath)) {
+    const normalizedPath = String(dirPath).trim()
+    if (!fs.existsSync(normalizedPath) && options?.allowCreate) {
+      ensureDirectoryExists(normalizedPath)
+    }
+    if (!fs.existsSync(normalizedPath)) {
       return { valid: false, code: 'NOT_EXISTS' }
     }
-    const stat = fs.statSync(dirPath)
+    const stat = fs.statSync(normalizedPath)
     if (!stat.isDirectory()) {
       return { valid: false, code: 'NOT_DIRECTORY' }
     }
     try {
-      fs.accessSync(dirPath, fs.constants.R_OK)
+      fs.accessSync(normalizedPath, fs.constants.R_OK)
     } catch {
       return { valid: false, code: 'NOT_READABLE' }
     }
     try {
-      fs.accessSync(dirPath, fs.constants.W_OK)
+      fs.accessSync(normalizedPath, fs.constants.W_OK)
     } catch {
       return { valid: false, code: 'NOT_WRITABLE' }
     }
-    return { valid: true }
+    return { valid: true, path: normalizedPath }
   } catch (error) {
     console.error('validate-books-dir failed:', error)
     return { valid: false, code: 'UNKNOWN' }
@@ -620,7 +638,7 @@ ipcMain.handle('write-export-file', async (event, { filePath, content }) => {
 ipcMain.handle('create-book', async (event, bookInfo) => {
   // 1. 处理文件夹名合法性
   const safeName = sanitizeBookFolderName(bookInfo.name)
-  const booksDir = store.get('booksDir')
+  const booksDir = ensureDirectoryExists(store.get('booksDir'))
   const bookPath = join(booksDir, safeName)
   if (!fs.existsSync(bookPath)) {
     fs.mkdirSync(bookPath)
@@ -681,7 +699,7 @@ ipcMain.handle('read-books-dir', async () => {
   const books = []
   const booksDir = store.get('booksDir')
   if (!booksDir || typeof booksDir !== 'string') return books
-  if (!fs.existsSync(booksDir)) return books
+  ensureDirectoryExists(booksDir)
   let files = []
   try {
     files = fs.readdirSync(booksDir, { withFileTypes: true })
