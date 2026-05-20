@@ -19,17 +19,17 @@
           </span>
           {{ t('home.menu.bookshelfPassword') }}
         </div>
+        <div class="menu-item" @click="openSystemSettings">
+          <span class="menu-item-icon" aria-hidden="true">
+            <Settings v-bind="menuIconProps" />
+          </span>
+          {{ t('home.menu.systemSetting') }}
+        </div>
         <div class="menu-item" @click="showThemeDialog = true">
           <span class="menu-item-icon" aria-hidden="true">
             <Palette v-bind="menuIconProps" />
           </span>
           {{ t('home.menu.themeSetting') }}
-        </div>
-        <div class="menu-item" @click="showDirDialog = true">
-          <span class="menu-item-icon" aria-hidden="true">
-            <Settings v-bind="menuIconProps" />
-          </span>
-          {{ t('home.menu.systemSetting') }}
         </div>
         <div class="menu-item" @click="goToUserGuide">
           <span class="menu-item-icon" aria-hidden="true">
@@ -67,8 +67,6 @@
       :title="t('home.systemSettings.title')"
       width="700px"
       align-center
-      :close-on-click-modal="false"
-      :show-close="false"
     >
       <el-form label-width="100px" @submit.prevent="handleConfirmDir">
         <el-form-item :label="t('home.systemSettings.booksDir')" required>
@@ -270,15 +268,20 @@ async function validateBooksDirOrNotify(pathValue) {
 // 定时器 ID
 let sponsorDialogTimer = null
 
-// 打开 AI 设置
-// 检查本地存储是否有bookDir
 onMounted(async () => {
-  const dir = await window.electronStore?.get('booksDir')
+  let dir = await window.electronStore?.get('booksDir')
   if (!dir) {
-    showDirDialog.value = true
-  } else {
-    bookDir.value = dir
+    // 首次启动：自动使用默认目录，不弹窗
+    try {
+      dir = await window.electron?.getDefaultBooksDir?.()
+      if (dir) {
+        await window.electronStore?.set('booksDir', dir)
+      }
+    } catch (e) {
+      console.error('获取默认书籍目录失败:', e)
+    }
   }
+  bookDir.value = dir || ''
   selectedLocale.value = getCurrentLocale()
   // 初始化主题
   await themeStore.initTheme()
@@ -447,6 +450,15 @@ async function handleRewardClick() {
 }
 
 // 选择目录
+// 打开系统设置弹窗前，同步当前已保存的目录路径
+async function openSystemSettings() {
+  const saved = await window.electronStore?.get('booksDir')
+  if (saved) {
+    bookDir.value = saved
+  }
+  showDirDialog.value = true
+}
+
 async function handleChooseDir() {
   try {
     const result = await window.electron?.selectBooksDir()

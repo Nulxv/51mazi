@@ -9,6 +9,7 @@ const api = {}
 const customElectronAPI = {
   // --------- 书籍相关 ---------
   selectBooksDir: () => ipcRenderer.invoke('select-books-dir'),
+  getDefaultBooksDir: () => ipcRenderer.invoke('get-default-books-dir'),
   // 选择图片文件
   selectImage: () => ipcRenderer.invoke('select-image'),
   // 显示保存文件对话框

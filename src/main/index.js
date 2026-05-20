@@ -361,6 +361,10 @@ function createWindow() {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
+    const parsed = (() => { try { return new URL(details.url) } catch { return null } })()
+    if (!parsed || !['https:', 'mailto:'].includes(parsed.protocol)) {
+      return { action: 'deny' }
+    }
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -426,9 +430,14 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
+// 获取默认书籍目录
+ipcMain.handle('get-default-books-dir', async () => {
+  return join('D:\\Word\\小说', '51')
+})
+
 // 选择书籍目录
 ipcMain.handle('select-books-dir', async () => {
-  const result = await dialog.showOpenDialog({
+  const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory']
   })
   return result

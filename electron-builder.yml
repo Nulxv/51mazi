@@ -10,7 +10,7 @@ files:
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!**/.venv/**'
   - '!**/venv/**'
@@ -67,9 +67,4 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: github
-  owner: xiaoshengxianjun
-  repo: 51mazi
-electronDownload:
-  mirror: https://npmmirror.com/mirrors/electron/
+publish: null
